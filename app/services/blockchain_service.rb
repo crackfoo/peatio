@@ -7,9 +7,17 @@ class BlockchainService
   def initialize(blockchain)
     @blockchain = blockchain
     @currencies = blockchain.currencies.deposit_enabled
+    @whitelisted_addresses = blockchain.whitelisted_addresses.active
     @adapter = Peatio::Blockchain.registry[blockchain.client.to_sym].new
-    @adapter.configure(server: @blockchain.server,
-                       currencies: @currencies.map(&:to_blockchain_api_settings))
+
+    if whitelisted_addresses.present?
+      @adapter.configure(server: @blockchain.server,
+                         currencies: @currencies.map(&:to_blockchain_api_settings),
+                         whitelisted_addresses: @whitelisted_addresses)
+    else
+      @adapter.configure(server: @blockchain.server,
+                         currencies: @currencies.map(&:to_blockchain_api_settings))
+    end
   end
 
   def latest_block_number
@@ -68,7 +76,9 @@ class BlockchainService
 
     # NOTE: We use update_column to not change updated_at timestamp
     # because we use it for detecting blockchain configuration changes see Workers::Daemon::Blockchain#run.
-    blockchain.update_column(:height, block_number) if latest_block_number - block_number >= blockchain.min_confirmations
+    if latest_block_number - block_number >= blockchain.min_confirmations
+      blockchain.update_column(:height, block_number)
+    end
   end
 
   private
@@ -95,7 +105,9 @@ class BlockchainService
     end
 
     # Fetch transaction from a blockchain that has `pending` status.
-    transaction = adapter.fetch_transaction(transaction) if @adapter.respond_to?(:fetch_transaction) && transaction.status.pending?
+    if @adapter.respond_to?(:fetch_transaction) && transaction.status.pending?
+      transaction = adapter.fetch_transaction(transaction)
+    end
     return unless transaction.status.success?
 
     address = PaymentAddress.find_by(wallet: Wallet.deposit_wallet(transaction.currency_id), address: transaction.to_address)
@@ -125,17 +137,13 @@ class BlockchainService
 
     deposit.update_column(:block_number, transaction.block_number) if deposit.block_number != transaction.block_number
     # Manually calculating deposit confirmations, because blockchain height is not updated yet.
-    if latest_block_number - deposit.block_number >= @blockchain.min_confirmations && deposit.accept!
-      deposit
-    else
-      nil
-    end
+    deposit if latest_block_number - deposit.block_number >= @blockchain.min_confirmations && deposit.accept!
   end
 
   def update_withdrawal(transaction)
     withdrawal =
       Withdraws::Coin.confirming
-        .find_by(currency_id: transaction.currency_id, txid: transaction.hash)
+                     .find_by(currency_id: transaction.currency_id, txid: transaction.hash)
 
     # Skip non-existing in database withdrawals.
     if withdrawal.blank?
@@ -146,7 +154,9 @@ class BlockchainService
     withdrawal.update_column(:block_number, transaction.block_number)
 
     # Fetch transaction from a blockchain that has `pending` status.
-    transaction = adapter.fetch_transaction(transaction) if @adapter.respond_to?(:fetch_transaction) && transaction.status.pending?
+    if @adapter.respond_to?(:fetch_transaction) && transaction.status.pending?
+      transaction = adapter.fetch_transaction(transaction)
+    end
     # Manually calculating withdrawal confirmations, because blockchain height is not updated yet.
     if transaction.status.failed?
       withdrawal.fail!
