@@ -32,7 +32,7 @@ module OpenfinexCloud
 
       response = connection.send(verb, *args)
       response.assert_success!
-      response = JSON.parse(response.body)
+      JSON.parse(response.body)
     rescue Faraday::Error => e
       raise ConnectionError, e
     rescue StandardError => e

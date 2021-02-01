@@ -436,24 +436,8 @@ describe Withdraw do
     end
   end
 
-  it 'automatically generates TID if it is blank' do
-    expect(create(:btc_withdraw, :with_deposit_liability).tid).not_to be_blank
-  end
-
   it 'doesn\'t generate TID if it is not blank' do
     expect(create(:btc_withdraw, :with_deposit_liability, tid: 'TID1234567890xyz').tid).to eq 'TID1234567890xyz'
-  end
-
-  it 'validates uniqueness of TID' do
-    record1 = create(:btc_withdraw, :with_deposit_liability)
-    record2 = build(:btc_withdraw, tid: record1.tid, member: record1.member)
-    record2.save
-    expect(record2.errors[:tid]).to match(["has already been taken"])
-  end
-
-  it 'uppercases TID' do
-    record = create(:btc_withdraw, :with_deposit_liability)
-    expect(record.tid).to eq record.tid.upcase
   end
 
   context 'using beneficiary' do

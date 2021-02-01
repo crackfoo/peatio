@@ -10,7 +10,7 @@ module Withdraws
 end
 
 # == Schema Information
-# Schema version: 20201125134745
+# Schema version: 20210201065429
 #
 # Table name: withdraws
 #
@@ -26,7 +26,7 @@ end
 #  sum            :decimal(32, 16)  not null
 #  type           :string(30)       not null
 #  transfer_type  :integer
-#  tid            :string(64)       not null
+#  tid            :string(64)
 #  rid            :string(256)      not null
 #  note           :string(256)
 #  metadata       :json

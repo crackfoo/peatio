@@ -15,7 +15,7 @@ module OpenfinexCloud
 
       @wallet = @settings.fetch(:wallet) do
         raise Peatio::Wallet::MissingSettingError, :wallet
-      end.slice(:uri, :address, :secret)
+      end.slice(:uri, :address)
 
       @currency = @settings.fetch(:currency) do
         raise Peatio::Wallet::MissingSettingError, :currency
@@ -24,22 +24,21 @@ module OpenfinexCloud
 
     def create_address!(_options = {})
       response = client.rest_api(:post, '/address/new', {
-                                   currency_id: currency
+                                   currency_id: currency_id
                                  })
 
-      { address: response['address'], secret: response['passphrase'], details: response.except('address', 'passphrase') }
+      { address: response['address'], details: response.except('address', 'passphrase') }
     rescue OpenfinexCloud::Client::Error => e
       raise Peatio::Wallet::ClientError, e
     end
 
     def create_transaction!(transaction)
-      client.rest_api(:post, '/tx/send', {
-                        currency_id: currency,
+      response = client.rest_api(:post, '/tx/send', {
+                        currency_id: currency_id,
                         to: transaction.to_address,
-                        amount: amount.to_i,
-                        passphrase: wallet_secret
+                        amount: transaction.amount,
                       })
-
+      transaction.options = response['options']
       transaction
     rescue OpenfinexCloud::Client::Error => e
       raise Peatio::Wallet::ClientError, e
@@ -47,10 +46,8 @@ module OpenfinexCloud
 
     def load_balance!
       response = client.rest_api(:post, '/address/balance', {
-        currency_id: currency,
+        currency_id: currency_id
       }.compact).fetch('balance')
-
-      response = response.yield_self { |amount| convert_from_base_unit(amount) } if coin_type == 'eth'
 
       response.to_d
     rescue OpenfinexCloud::Client::Error => e

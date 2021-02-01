@@ -10,8 +10,12 @@ module TIDIdentifiable
     before_validation do
       next unless tid.blank?
       begin
-        self.tid = "TID#{SecureRandom.hex(5).upcase}"
+        self.tid = TIDIdentifiable.generate
       end while self.class.where(tid: tid).any?
     end
+  end
+
+  def self.generate
+    "TID#{SecureRandom.hex(5).upcase}"
   end
 end
