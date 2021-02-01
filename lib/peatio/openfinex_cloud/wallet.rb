@@ -1,6 +1,7 @@
 module OpenfinexCloud
   class Wallet < Peatio::Wallet::Abstract
-    DEFAULT_FEATURES = { skip_deposit_collection: false }.freeze
+    Error = Class.new(StandardError)
+    DEFAULT_FEATURES = { skip_deposit_collection: true }.freeze
 
     def initialize(custom_features = {})
       @features = DEFAULT_FEATURES.merge(custom_features).slice(*SUPPORTED_FEATURES)
@@ -10,6 +11,12 @@ module OpenfinexCloud
     def configure(settings = {})
       # Clean client state during configure.
       @client = nil
+
+      if Config.first.present? && Config.first.platform_id.present?
+        @platform_id = Config.first.platform_id
+      else
+        raise Peatio::Wallet::MissingSettingError, 'platform_id in Config DB'
+      end
 
       @settings.merge!(settings.slice(*SUPPORTED_SETTINGS))
 
@@ -24,16 +31,18 @@ module OpenfinexCloud
 
     def create_address!(_options = {})
       response = client.rest_api(:post, '/address/new', {
+                                   platform_id: @platform_id,
                                    currency_id: currency_id
                                  })
 
-      { address: response['address'], details: response.except('address', 'passphrase') }
+      { address: response['address'], details: response.except('address') }
     rescue OpenfinexCloud::Client::Error => e
       raise Peatio::Wallet::ClientError, e
     end
 
     def create_transaction!(transaction)
       response = client.rest_api(:post, '/tx/send', {
+                        platform_id: @platform_id,
                         currency_id: currency_id,
                         to: transaction.to_address,
                         amount: transaction.amount,
@@ -46,16 +55,13 @@ module OpenfinexCloud
 
     def load_balance!
       response = client.rest_api(:post, '/address/balance', {
+        platform_id: @platform_id,
         currency_id: currency_id
       }.compact).fetch('balance')
 
       response.to_d
     rescue OpenfinexCloud::Client::Error => e
       raise Peatio::Wallet::ClientError, e
-    end
-
-    def wallet_address
-      @wallet.fetch(:address)
     end
 
     def currency_id

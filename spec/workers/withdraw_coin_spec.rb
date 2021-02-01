@@ -123,4 +123,26 @@ describe Workers::AMQP::WithdrawCoin do
       expect(processing_withdrawal.txid).to eq('hash-1')
     end
   end
+
+  context 'wallet balance is sufficient and build_withdrawal! returns tid' do
+    before do
+      WalletService.any_instance
+                   .expects(:load_balance!)
+                   .returns(withdrawal.amount)
+
+      transaction = Peatio::Transaction.new(amount: withdrawal.amount,
+                                            to_address: withdrawal.rid,
+                                            options: { tid: 'TID123' })
+      WalletService.any_instance
+                   .expects(:build_withdrawal!)
+                   .with(instance_of(Withdraws::Coin))
+                   .returns(transaction)
+    end
+
+    it 'returns true and dispatch withdrawal' do
+      expect(Workers::AMQP::WithdrawCoin.new.process(processing_withdrawal.as_json)).to be_truthy
+      expect(processing_withdrawal.reload.processing?).to be_truthy
+      expect(processing_withdrawal.tid).to eq('TID123')
+    end
+  end
 end

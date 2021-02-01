@@ -74,8 +74,8 @@ module Workers
                        message: 'Updating withdraw state in database.'
 
           # Generate TID if client didn't provide TID
-          if transaction.options.present? && transaction.options['tid'].present?
-            withdraw.tid = transaction.options['tid']
+          if transaction.options.present? && transaction.options.symbolize_keys[:tid].present?
+            withdraw.tid = transaction.options.symbolize_keys[:tid]
           else
             withdraw.tid = TIDIdentifiable.generate
           end

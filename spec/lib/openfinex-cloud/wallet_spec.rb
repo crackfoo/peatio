@@ -1,5 +1,6 @@
 describe OpenfinexCloud::Wallet do
   let(:wallet) { OpenfinexCloud::Wallet.new }
+  let!(:config) { Config.create(platform_id: 'opendax') }
 
   context :configure do
     let(:settings) { { wallet: {}, currency: {} } }
@@ -57,7 +58,7 @@ describe OpenfinexCloud::Wallet do
 
     it 'should create an address' do
       stub_request(:post, uri + '/address/new')
-        .with(body: {currency_id: 'eth'}.to_json)
+        .with(body: {platform_id: config.platform_id, currency_id: 'eth'}.to_json)
         .to_return(body: uri_result.to_json)
 
       result = wallet.create_address!(uid: 'UID123')
@@ -78,19 +79,7 @@ describe OpenfinexCloud::Wallet do
       Currency.find_by(id: :eth)
     end
 
-    let(:trst) do
-      Currency.find_by(id: :trst)
-    end
-
-    let(:btc) do
-      Currency.find_by(id: :btc)
-    end
-
     let(:deposit_wallet_eth) { Wallet.joins(:currencies).find_by(currencies: { id: :eth }, kind: :deposit) }
-    let(:hot_wallet_eth) { Wallet.joins(:currencies).find_by(currencies: { id: :eth }, kind: :hot) }
-    let(:fee_wallet) { Wallet.joins(:currencies).find_by(currencies: { id: :eth }, kind: :fee) }
-    let(:deposit_wallet_trst) { Wallet.joins(:currencies).find_by(currencies: { id: :eth }, kind: :deposit) }
-    let(:hot_wallet_trst) { Wallet.joins(:currencies).find_by(currencies: { id: :eth }, kind: :hot) }
 
     let(:uri) { 'http://127.0.0.1:8000' }
 
@@ -122,6 +111,7 @@ describe OpenfinexCloud::Wallet do
 
       let(:request_params) do
         {
+          platform_id: config.platform_id,
           currency_id:    'eth',
           to:           transaction.to_address,
           amount:       transaction.amount.to_d,
@@ -153,14 +143,6 @@ describe OpenfinexCloud::Wallet do
       Currency.find_by(id: :eth)
     end
 
-    let(:btc) do
-      Currency.find_by(id: :btc)
-    end
-
-    let(:trst) do
-      Currency.find_by(id: :trst)
-    end
-
     let(:uri) { 'http://127.0.0.1:8000' }
 
     context 'eth load_balance' do
@@ -185,7 +167,8 @@ describe OpenfinexCloud::Wallet do
 
       let(:request_params) do
         {
-          currency_id:   'eth',
+          platform_id: config.platform_id,
+          currency_id: 'eth',
         }
       end
 
